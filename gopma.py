@@ -46,12 +46,14 @@ CHILD_GENRE_FILE = 'child_genres.data'
 
 class Gopma():
     def __init__(self):
+        print "Initialising GOPMA."
         config = ConfigParser.ConfigParser()
         config.read('config.ini')
 
         email = config.get('login', 'email')
         password = config.get('login', 'password')
 
+        print "Logging into Google Play Music as", email
         self.api = Mobileclient()
         login = self.api.login(email, password, Mobileclient.FROM_MAC_ADDRESS)
 
@@ -59,9 +61,11 @@ class Gopma():
             print "<< Couldn't login. >>"
             sys.exit()
 
+        print "Loading data."
         self.playlists = self.api.get_all_playlists()
         self.content = self.api.get_all_user_playlist_contents()
         self.root_genres, self.child_genres = self.load_genres()
+        print "Data successfully loaded."
 
     def create_or_retrieve_playlists(self, playlists):
         """ Helper function to create or retrieve playlist IDs for a given agg_lists
@@ -102,10 +106,13 @@ class Gopma():
             with open(ROOT_GENRE_FILE) as fp:
                 root_genres = pickle.load(fp)
         else:
+            print "Couldn't find a root genres file, retrieving data."
             root_genres = self.api.get_genres()
 
             with open(ROOT_GENRE_FILE, 'w') as fp:
                 pickle.dump(root_genres, fp)
+
+            print "Root genres file created."
 
         # Get the child genres
         if os.path.isfile(CHILD_GENRE_FILE):
@@ -113,6 +120,7 @@ class Gopma():
             with open(CHILD_GENRE_FILE) as fp:
                 child_genres = pickle.load(fp)
         else:
+            print "Couldn't find a child genres file, retrieving data."
             child_genres = {}
 
             for genre in root_genres:
@@ -124,6 +132,7 @@ class Gopma():
 
             with open(CHILD_GENRE_FILE, 'w') as fp:
                 pickle.dump(child_genres, fp)
+            print "Child genres file created."
 
         return root_genres, child_genres
 
@@ -251,21 +260,28 @@ class Gopma():
 if __name__ == "__main__":
     # Args parsing
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', help="Delete all empty playlists.")
-    parser.add_argument('-c', help="Create all necessary playlists.")
-    parser.add_argument('-u', help="Update group playlists.")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-d", "--delete", help="Delete all empty playlists.", action='store_true')
+    group.add_argument("-c", "--create", help="Create all necessary playlists.", action='store_true')
+    group.add_argument("-u", "--update", help="Update group playlists.", action='store_true')
+    group.add_argument("-r", "--reset", help="Reset the daily playlists.", action='store_true')
 
-    gopma = Gopma()
+    args = parser.parse_args()
 
-    # Delete empty playlists
-    # gopma.delete_empty_playlists()
-    # gopma.wipe_playlist(get_playlist_id(PLAYLIST_PREFIX+"Group Playlist"))
-
-    # Create genre playlists
-    # gopma.create_playlists()
-
-    # Update the group aggregate playlist
-    gopma.update_group_playlist()
-
-    # Update daily playlists
-    # gopma.reset_daily_playlists()
+    if args.delete:
+        gopma = Gopma()
+        # Delete empty playlists
+        gopma.delete_empty_playlists()
+        gopma.wipe_playlist(get_playlist_id(PLAYLIST_PREFIX+"Group Playlist"))
+    elif args.create:
+        gopma = Gopma()
+        # Create genre playlists
+        gopma.create_playlists()
+    elif args.update:
+        gopma = Gopma()
+        # Update the group aggregate playlist
+        gopma.update_group_playlist()
+    elif args.reset:
+        gopma = Gopma()
+        # Update daily playlists
+        gopma.reset_daily_playlists()
