@@ -17,7 +17,7 @@ password=application_password_here
 ```
 At this point you should be good to go!
 
-## Usage
+## Getting started
 I haven't actually tested this from scratch yet. What SHOULD happen is the following:
 
 1. Run GOPMA with the ```--create``` argument. This should create a whole heap of playlists (genres, the daily playlists, and the giant aggregate)
@@ -26,6 +26,7 @@ I haven't actually tested this from scratch yet. What SHOULD happen is the follo
 4. Run GOPMA with the ```--update``` argument.
 5. If everything looks like it's working, set it up as a cronjob on your server.
 
+## Usage
 ```
 usage: gopma.py [-h] [-d | -w | -c | -u | -r | -g | -l]
 
