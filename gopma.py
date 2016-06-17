@@ -52,14 +52,34 @@ class Gopma():
 
         email = config.get('login', 'email')
         password = config.get('login', 'password')
+        try:
+            auth_token = config.get('login', 'auth_token')
+        except:
+            auth_token = False
+            print "No auth token could be found"
 
         print "Logging into Google Play Music as", email
-        self.api = Mobileclient()
-        login = self.api.login(email, password, Mobileclient.FROM_MAC_ADDRESS)
+        if not auth_token:
+            self.api = Mobileclient()
+            login = self.api.login(email, password, Mobileclient.FROM_MAC_ADDRESS)
+
+            with open('config.ini', 'w+') as f:
+                config.set('login', 'auth_token', self.api.session._authtoken)
+                config.write(f)
+                f.close()
+                print "Saved auth token for later."
+        else:
+            print "Found an auth token, trying it."
+            self.api = Mobileclient()
+            self.api.session._authtoken = auth_token
+            self.api.session.is_authenticated = True
+            login = True
 
         if not login:
             print "<< Couldn't login. >>"
             sys.exit()
+        else:
+            print "Successfully logged in as", email
 
         if action != 'reset_genres':
             print "Loading data."
