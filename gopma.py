@@ -59,27 +59,38 @@ class Gopma():
             print "No auth token could be found"
 
         print "Logging into Google Play Music as", email
-        if not auth_token:
-            self.api = Mobileclient()
-            login = self.api.login(email, password, Mobileclient.FROM_MAC_ADDRESS)
+        logged_in = False
+        bad_auth = False
+        while not logged_in:
+            if not auth_token or bad_auth:
+                self.api = Mobileclient()
+                login = self.api.login(email, password, Mobileclient.FROM_MAC_ADDRESS)
+                if not login:
+                    print "Login failed, check your credentials."
+                    sys.exit()
 
-            with open('config.ini', 'w+') as f:
-                config.set('login', 'auth_token', self.api.session._authtoken)
-                config.write(f)
-                f.close()
-                print "Saved auth token for later."
-        else:
-            print "Found an auth token, trying it."
-            self.api = Mobileclient()
-            self.api.session._authtoken = auth_token
-            self.api.session.is_authenticated = True
-            login = True
+                # Save the auth token for later
+                with open('config.ini', 'w+') as f:
+                    config.set('login', 'auth_token', self.api.session._authtoken)
+                    config.write(f)
+                    f.close()
+                    print "Saved auth token for later."
 
-        if not login:
-            print "<< Couldn't login. >>"
-            sys.exit()
-        else:
-            print "Successfully logged in as", email
+                logged_in = True
+            else:
+                print "Found an auth token, trying it."
+                self.api = Mobileclient()
+                self.api.session._authtoken = auth_token
+                self.api.session.is_authenticated = True
+                try:
+                    # Test the auth token
+                    self.api.get_registered_devices()
+                    logged_in = True
+                except:
+                    # Failed
+                    print "Bad auth token, manually signing in."
+                    bad_auth = True
+        print "Successfully logged in as", email
 
         if action != 'reset_genres':
             print "Loading data."
