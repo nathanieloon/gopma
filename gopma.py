@@ -367,6 +367,7 @@ class Gopma():
                     # Save to DB
                     self.commit_changes(conn, cur, insert_song, values)
 
+        print "Songs successfully updated."
         # Close connection
         cur.close()
         conn.close()
