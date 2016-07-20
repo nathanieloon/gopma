@@ -12,6 +12,8 @@ import ConfigParser
 import argparse
 import logging
 import cPickle as pickle
+import psycopg2
+from datetime import datetime, timedelta
 
 # Global vars
 PLAYLIST_PREFIX = '[GOPMA] '
@@ -329,6 +331,54 @@ class Gopma():
 
         print "Finished updating group playlists."
 
+    def update_songs(self):
+        """ Update the database with song information
+        """
+        # Connect to the database
+        config = ConfigParser.ConfigParser()
+        config.read('config.ini')
+
+        dbname = config.get('database', 'dbname')
+        dbuser = config.get('database', 'user')
+        dbhost = config.get('database', 'host')
+        dbpass = config.get('database', 'password')
+
+        try:
+            conn = psycopg2.connect("dbname="+dbname+" user="+dbuser+" host="+dbhost+" password="+dbpass)
+            cur = conn.cursor()
+        except psycopg2.Error as e:
+            print "<< Could not connect to the db. >>"
+            print e
+            sys.exit()
+
+        # Update songs
+        for c in self.content:
+            if c.get('type') == 'USER_GENERATED' and c.get('name') == AGGREGATE_PLAYLIST_NAME:
+                songs = c.get('tracks')
+                for s in songs:
+                    # Song details
+                    details = s['track']
+                    # Date song was added
+                    date_added = datetime.fromtimestamp(int(s.get('creationTimestamp'))/1000000)
+                    # Values to save
+                    values = [str(s.get('trackId')), str(details.get('title').encode('UTF-8', 'ignore')), str(details.get('artist').encode('UTF-8', 'ignore')), str(details.get('album').encode('UTF-8', 'ignore')), str(details.get('genre')), date_added]
+                    # SQL query
+                    insert_song = "INSERT INTO playlists_song VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (tid) DO NOTHING;"
+                    # Save to DB
+                    self.commit_changes(conn, cur, insert_song, values)
+
+        # Close connection
+        cur.close()
+        conn.close()
+
+    def commit_changes(self, conn, cur, query, values):
+        try: # Commit our changes made
+            cur.execute(query, values)
+            conn.commit()
+        except psycopg2.Error as exc:
+            print exc
+            sys.exit()
+
 if __name__ == "__main__":
     # Args parsing
     parser = argparse.ArgumentParser()
@@ -340,11 +390,12 @@ if __name__ == "__main__":
     group.add_argument("-r", "--reset", help="Reset the daily playlists.", action='store_true')
     group.add_argument("-g", "--genre_update", help="Reset the genre files.", action='store_true')
     group.add_argument("-l", "--list", help="Return a list of all the GOPMA share urls.", action='store_true')
+    group.add_argument("-s", "--song_update", help="Update the database with GOPMA song info.", action='store_true')
 
     args = parser.parse_args()
 
     # Only initialise the connection if we need it
-    if args.delete or args.wipe or args.create or args.update or args.reset or args.list:
+    if args.delete or args.wipe or args.create or args.update or args.reset or args.list or args.song_update:
         gopma = Gopma()
 
     if args.delete:
@@ -376,3 +427,6 @@ if __name__ == "__main__":
         urls = gopma.get_playlist_urls()
         for name, url in urls.items():
             print name, url
+
+    if args.song_update:
+        gopma.update_songs()
